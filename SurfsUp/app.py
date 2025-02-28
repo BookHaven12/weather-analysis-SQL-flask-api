@@ -36,6 +36,7 @@ app = Flask(__name__)
 #################################################
 # Flask Routes
 #################################################
+## Used chatGPT to add the start and end words to the api/v1.0/
 @app.route("/")
 def welcome():
     """List all available API routes."""
@@ -145,6 +146,7 @@ def temperature_range(start, end=None):
     earliest_date = session.query(func.min(Measurement.date)).scalar()
     latest_date = session.query(func.max(Measurement.date)).scalar()
 
+    # I used ChatGPT to get help with this loop
     #Check if start date is valid
     if start < earliest_date or start > latest_date:
         session.close()
