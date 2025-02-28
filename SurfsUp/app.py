@@ -1,6 +1,6 @@
 # Import the dependencies.
 import numpy as np
-
+import datetime as dt
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
@@ -12,12 +12,13 @@ from flask import Flask, jsonify
 #################################################
 # Database Setup
 #################################################
-engine = create_engine("sqlite:///hawaii.sqlite")
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
 # reflect an existing database into a new model
 Base = automap_base()
 # reflect the tables
 Base.prepare(autoload_with=engine)
+print(Base.classes.keys())
 
 # Save references to each table
 Measurement = Base.classes.measurement
@@ -70,7 +71,7 @@ def precipitation():
 
     # Convert query results to a list of dictionaries and append list
     all_precipitations = []
-    for date, prcp in results:
+    for date, prcp in precip_data:
         precip_dict = {}
         precip_dict["date"] = date
         precip_dict["precipitation"] = prcp
@@ -87,7 +88,7 @@ def stations():
     session = Session(engine)
 
     # Query all station names
-    results = session.query(Station.station).all()
+    results = session.query(Station.name).all()
 
     # Close the session after query
     session.close()
@@ -100,6 +101,7 @@ def stations():
 
 @app.route("/api/v1.0/tobs")
 def tobs():
+
     """Return JSON of temperature observations (tobs) for the most active station."""
     # Create our session (link) from Python to the DB
     session = Session(engine)
@@ -110,13 +112,13 @@ def tobs():
         order_by(func.count(Measurement.station).desc()).first()[0]
 
     # Find the most recent date & calculate last 12 months
-    most_recent_date = session.query(func.max(Measurement.date)).scalar()
+    most_recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
     query_date = dt.datetime.strptime(most_recent_date, "%Y-%m-%d") - dt.timedelta(days=365)
 
     # Query temperature observations for the most active station
     tobs_data = session.query(Measurement.date, Measurement.tobs).\
-    filter(Measurement.station == most_active_station).\
-    filter(func.strftime(Measurement.date) >= query_date).all()
+        filter(Measurement.station == most_active_station).\
+        filter(func.strftime(Measurement.date) >= query_date).all()
 
     session.close()
 
@@ -129,3 +131,62 @@ def tobs():
         all_tobs.append(tobs_dict)
 
     return jsonify(all_tobs)
+   
+
+@app.route("/api/v1.0/<start>")
+@app.route("/api/v1.0/<start>/<end>")
+def temperature_range(start, end=None):
+    
+    """Return min, avg, and max temperature for given date range."""
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+
+    #Get earliest dates
+    earliest_date = session.query(func.min(Measurement.date)).scalar()
+    latest_date = session.query(func.max(Measurement.date)).scalar()
+
+    #Check if start date is valid
+    if start < earliest_date or start > latest_date:
+        session.close()
+        return jsonify({"error": f"Invalid start date. Date must be between {earliest_date} and {latest_date}"}), 400
+
+    # Check if the end date is valid
+    if end:
+        if end < earliest_date or end > latest_date:
+            session.close()
+            return jsonify({"error": f"Invalid end date. Date must be between {earliest_date} and {latest_date}"}), 400
+        if start > end:
+            session.close()
+            return jsonify({"error": "Invalid date range. Start date must be before end date."}), 400
+
+    # I used ChatGPT for help me with this loop
+    # If only start date is provided
+    if not end:
+        results = session.query(
+            func.min(Measurement.tobs),
+            func.avg(Measurement.tobs),
+            func.max(Measurement.tobs)
+        ).filter(Measurement.date >= start).all()
+    
+    # If start and end date are provided
+    else:
+        results = session.query(
+            func.min(Measurement.tobs),
+            func.avg(Measurement.tobs),
+            func.max(Measurement.tobs)
+        ).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+    
+    session.close()
+
+    # Convert results into a dictionary
+    temp_stats = {
+        "Minimum Temperature": f"{results[0][0]:.2f} F",
+        "Average Temperature": f"{results[0][1]:.2f} F",
+        "Maximun Temperature": f"{results[0][2]:.2f} F"
+    }
+
+    return jsonify(temp_stats)
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
