@@ -6,12 +6,12 @@
 ## Part 1: Climate Data Analysis and Visualization
 * Queried and analyzed precipitation trends for the past 12 months
 * Identified the most active weather stations based on observation counts
-* Cacluated temperature statistics (min, max, avg) for the most active station
+* Caculated temperature statistics (min, max, avg) for the most active station
 * Visualized data using bar charts and histograms in Maplotlib
 
 ## Part 2: Flask and API Development
 * Built a landing page  with SQLite conneciton
-* Created static routes to return precipitation, station names, and temperature date in JSON format
+* Created static routes to return precipitation, station names, and temperature data in JSON format
 * Added dynamic routes to return temperature statistics for specified dates and ranges
 
 ### Skills Demonstrated: 
