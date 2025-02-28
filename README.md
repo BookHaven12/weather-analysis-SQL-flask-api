@@ -22,6 +22,6 @@
 
 
 ### Resources:
-I was able to write the majority of this code from using the following homework examples:
+I was able to write the majority of this code from the following homework examples:
 * Adv SQL Day 3- Dates_solution, Dow_dates_solution, and Ins_Flask_with_ORM
 * I used Chatgpt to help fix errors with my code when needed
