@@ -1,42 +1,40 @@
-# Import the dependencies.
+# Import the dependencies
 import numpy as np
 import datetime as dt
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
-
 from flask import Flask, jsonify
 
 
 #################################################
 # Database Setup
 #################################################
+# Create engine to connect to the SQLite database
 engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
-# reflect an existing database into a new model
+# Reflect the database schema into ORM classes
 Base = automap_base()
-# reflect the tables
+
+# Reflect tables from the database
 Base.prepare(autoload_with=engine)
 print(Base.classes.keys())
 
-# Save references to each table
+# Save references to the Measurement and Station tables
 Measurement = Base.classes.measurement
 Station = Base.classes.station
-
-
 
 #################################################
 # Flask Setup
 #################################################
+
+# Initialize the Flask app
 app = Flask(__name__)
-
-
 
 #################################################
 # Flask Routes
 #################################################
-## Used chatGPT to add the start and end words to the api/v1.0/
 @app.route("/")
 def welcome():
     """List all available API routes."""
@@ -57,10 +55,10 @@ def precipitation():
     # Create session (link) from Python to the DB
     session = Session(engine)
 
-    # Find the most recent date
+    # Get the most recent date in the dataset
     most_recent_date = session.query(func.max(Measurement.date)).scalar()
 
-    # Convert to datetime & calculate 1 year ago
+    # Calculate the date one year prior to the most recent date
     query_date = dt.datetime.strptime(most_recent_date, "%Y-%m-%d") - dt.timedelta(days=365)
 
     # Query precipitation data for the last 12 months
@@ -85,7 +83,7 @@ def precipitation():
 def stations():
     """Return a list of all station names"""
     
-    # Create session (link) from Python to the DB
+    # Create session (link) from Python to connect to the database
     session = Session(engine)
 
     # Query all station names
@@ -94,7 +92,7 @@ def stations():
     # Close the session after query
     session.close()
 
-    # Convert list of tuples into a normal list
+    # Flatten list of tuples into a simple list
     all_stations = list(np.ravel(results))
 
     return jsonify(all_stations)
@@ -104,16 +102,18 @@ def stations():
 def tobs():
 
     """Return JSON of temperature observations (tobs) for the most active station."""
-    # Create our session (link) from Python to the DB
+    # Create our session (link) from Python to the database
     session = Session(engine)
 
-    # Find the most active station
+    # Identify the most active station by count of observations
     most_active_station = session.query(Measurement.station).\
         group_by(Measurement.station).\
         order_by(func.count(Measurement.station).desc()).first()[0]
 
-    # Find the most recent date & calculate last 12 months
+    # Get the most recent date in the dataset
     most_recent_date = session.query(Measurement.date).order_by(Measurement.date.desc()).first()[0]
+
+    # Calculate the date one year prior
     query_date = dt.datetime.strptime(most_recent_date, "%Y-%m-%d") - dt.timedelta(days=365)
 
     # Query temperature observations for the most active station
@@ -121,9 +121,10 @@ def tobs():
         filter(Measurement.station == most_active_station).\
         filter(func.strftime(Measurement.date) >= query_date).all()
 
+    # Close the session after query
     session.close()
 
-    # Convert to a list of dictionaries and append
+    # Format results into a list of dictionaries
     all_tobs = []
     for date, temp in tobs_data:
         tobs_dict = {}
@@ -139,20 +140,19 @@ def tobs():
 def temperature_range(start, end=None):
     
     """Return min, avg, and max temperature for given date range."""
-    # Create our session (link) from Python to the DB
+    # Create our session (link) from Python to the database
     session = Session(engine)
 
-    #Get earliest dates
+    # Retrieve earliest and latest dates in the dataset
     earliest_date = session.query(func.min(Measurement.date)).scalar()
     latest_date = session.query(func.max(Measurement.date)).scalar()
 
-    # I used ChatGPT to get help with this loop
-    #Check if start date is valid
+    # Validate the start date
     if start < earliest_date or start > latest_date:
         session.close()
         return jsonify({"error": f"Invalid start date. Date must be between {earliest_date} and {latest_date}"}), 400
 
-    # Check if the end date is valid
+    # Validate the end date if provided
     if end:
         if end < earliest_date or end > latest_date:
             session.close()
@@ -161,8 +161,7 @@ def temperature_range(start, end=None):
             session.close()
             return jsonify({"error": "Invalid date range. Start date must be before end date."}), 400
 
-    # I used ChatGPT for help me with this loop
-    # If only start date is provided
+    # Query min, avg, max temperatures from start date (if no end date)
     if not end:
         results = session.query(
             func.min(Measurement.tobs),
@@ -170,7 +169,7 @@ def temperature_range(start, end=None):
             func.max(Measurement.tobs)
         ).filter(Measurement.date >= start).all()
     
-    # If start and end date are provided
+    # Query min, avg, max temperatures for start to end date
     else:
         results = session.query(
             func.min(Measurement.tobs),
@@ -178,9 +177,10 @@ def temperature_range(start, end=None):
             func.max(Measurement.tobs)
         ).filter(Measurement.date >= start).filter(Measurement.date <= end).all()
     
+    # Close the session
     session.close()
 
-    # Convert results into a dictionary
+    # Format the results into a dictionary
     temp_stats = {
         "Minimum Temperature": f"{results[0][0]:.2f} F",
         "Average Temperature": f"{results[0][1]:.2f} F",
@@ -189,6 +189,7 @@ def temperature_range(start, end=None):
 
     return jsonify(temp_stats)
 
-
+# Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
+    
